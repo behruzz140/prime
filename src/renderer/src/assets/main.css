@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+body {
+  @apply w-full bg-gray-100;
+}
