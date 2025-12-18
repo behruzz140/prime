@@ -1,5 +1,16 @@
 <template>
   <div class="p-4">
+    <!-- Toaster uchun container -->
+    <div class="toast-container">
+      <ToastNotification
+        v-if="toast.show"
+        :message="toast.message"
+        :type="toast.type"
+        :duration="toast.duration"
+        @close="toast.show = false"
+      />
+    </div>
+    
     <!-- Sarlavha va boshqaruv paneli -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
       <h2 class="text-2xl font-bold text-gray-800">
@@ -121,10 +132,6 @@
                     : 'bg-gray-100 text-gray-800'
                 ]"
               >
-                <!-- <Icon 
-                  :icon="session.isSync && !session.isUpdated ? 'mdi:check-circle' : 'mdi:sync-alert'" 
-                  class="w-4 h-4 mr-1"
-                /> -->
                 {{ session.isSync && !session.isUpdated ? "Sinxronlangan" : "Kutilmoqda" }}
               </span>
             </td>
@@ -192,6 +199,7 @@ import { onMounted, ref, watch, nextTick } from "vue";
 import * as XLSX from 'xlsx';
 import SessionInfo from "./SessionInfo.vue";
 import ExportModal from "./ExportModal.vue";
+import ToastNotification from "@/components/ToastNotification.vue";
 import { Icon } from '@iconify/vue';
 
 const sessionStore = useSessionsStore();
@@ -208,23 +216,49 @@ const isExportModalOpen = ref(false);
 const isExporting = ref(false);
 const debounceTimer = ref(null);
 
+// Toaster uchun state
+const toast = ref({
+  show: false,
+  message: '',
+  type: 'info', // success, error, warning, info
+  duration: 3000
+});
+
+// Toaster ko'rsatish funksiyasi
+const showToast = (message, type = 'info', duration = 3000) => {
+  toast.value = {
+    show: true,
+    message,
+    type,
+    duration
+  };
+  
+  // Avvalgi toaster'ni yopish
+  setTimeout(() => {
+    if (toast.value.show) {
+      toast.value.show = false;
+    }
+  }, duration);
+};
+
 // Socket hodisalari
 socket.on("newSession", async (info) => {
   try {
     console.log("Yangi sessiya:", info);
     // Store'ga yangi sessiyani qo'shamiz
     if (info && typeof info === 'object') {
-      // Agar sessionStore'da addSession metodi bo'lmasa, to'g'ridan-to'g'ri arrayni yangilaymiz
       if (sessionStore.addSession) {
         sessionStore.addSession(info);
       } else {
-        // SessionStore'ni o'zgartirish
         sessionStore.sessions = [info, ...sessionStore.sessions];
         sessionStore.total += 1;
       }
+      // Yangi sessiya qo'shilganini bildirish
+      showToast(`Yangi sessiya qo'shildi: ${info.plateNumber || 'Noma\'lum'}`, 'success', 2000);
     }
   } catch (error) {
     console.error("Yangi sessiya qo'shishda xato:", error);
+    showToast(`Yangi sessiya qo'shishda xato: ${error.message}`, 'error');
   }
 });
 
@@ -232,8 +266,10 @@ socket.on("printEvent", async (info) => {
   try {
     console.log("Chop etish so'rovi:", info);
     window.api.send("print-receipt", info);
+    showToast('Chek chop etish so\'rovi yuborildi', 'info', 1500);
   } catch (error) {
     console.error("Chop etishda xato:", error);
+    showToast(`Chop etishda xato: ${error.message}`, 'error');
   }
 });
 
@@ -251,44 +287,38 @@ const getAllSession = async () => {
       timeout: 10000
     });
     
-    console.log("API Response:", data); // API responseni konsolda ko'rish
+    console.log("API Response:", data);
     
-    // API responseni tekshirish
     if (!data) {
       console.error("API responsi bo'sh");
+      showToast('API responsi bo\'sh', 'error');
       return;
     }
     
-    // Har xil API strukturasi uchun moslashtirish
     let sessionsData = [];
     let total = 0;
     let totalPages = 0;
     
     if (Array.isArray(data)) {
-      // Agar data to'g'ridan-to'g'ri array bo'lsa
       sessionsData = data;
       total = data.length;
       totalPages = Math.ceil(data.length / size.value);
     } else if (data.data && Array.isArray(data.data)) {
-      // Agar data object ichida bo'lsa
       sessionsData = data.data;
       total = data.total || data.count || sessionsData.length;
       totalPages = data.totalPages || data.pages || Math.ceil(total / size.value);
     } else if (data.success && Array.isArray(data.data)) {
-      // Agar success field bo'lsa
       sessionsData = data.data;
       total = data.total || sessionsData.length;
       totalPages = data.totalPages || Math.ceil(total / size.value);
     }
     
-    // Unique sessiyalarni olish
     const newSessions = sessionsData.filter(
       s => !sessionStore.sessions.some(existing => existing.id === s.id)
     );
     
     console.log("Yangi sessiyalar:", newSessions.length);
     
-    // Store'ni yangilash
     if (page.value === 1) {
       sessionStore.setSessions(sessionsData);
     } else {
@@ -299,9 +329,13 @@ const getAllSession = async () => {
     sessionStore.totalPages = totalPages;
     page.value++;
     
+    if (page.value === 2) {
+      showToast(`${total} ta sessiya yuklandi`, 'success', 2000);
+    }
+    
   } catch (error) {
     console.error("Sessiyalarni olishda xato:", error);
-    alert(`Sessiyalarni yuklashda xatolik: ${error.message}`);
+    showToast(`Sessiyalarni yuklashda xatolik: ${error.message}`, 'error');
   } finally {
     isLoading.value = false;
   }
@@ -312,7 +346,6 @@ const searchSessions = async () => {
   searchPage.value = 1;
   
   if (!searchQuery.value.trim()) {
-    // Bo'sh qidiruv: asosiy ro'yxatni tiklash
     page.value = 1;
     sessionStore.setSessions([]);
     await nextTick();
@@ -351,9 +384,12 @@ const searchSessions = async () => {
     
     searchPage.value++;
     setupSearchObserver();
+    
+    showToast(`${sessionsData.length} ta natija topildi`, 'info', 2000);
+    
   } catch (error) {
     console.error("Qidiruvda xato:", error);
-    alert(`Qidiruvda xatolik: ${error.message}`);
+    showToast(`Qidiruvda xatolik: ${error.message}`, 'error');
   } finally {
     isLoading.value = false;
   }
@@ -398,8 +434,12 @@ const loadMoreSearchResults = async () => {
     
     sessionStore.setSessions([...sessionStore.sessions, ...newSessions]);
     searchPage.value++;
+    
+    showToast(`Qo'shimcha ${newSessions.length} ta natija yuklandi`, 'info', 1500);
+    
   } catch (error) {
     console.error("Qo'shimcha yuklashda xato:", error);
+    showToast(`Qo'shimcha yuklashda xatolik: ${error.message}`, 'error');
   } finally {
     isLoading.value = false;
   }
@@ -410,6 +450,7 @@ const refreshSessions = () => {
   page.value = 1;
   sessionStore.setSessions([]);
   getAllSession();
+  showToast('Sessiyalar yangilanmoqda...', 'info', 1500);
 };
 
 // Sessiyani ochish
@@ -510,7 +551,7 @@ const exportToExcel = async (dateRange) => {
         console.log(`Sahifa ${currentPage}: ${filteredSessions.length} ta filtrlandi (jami: ${sessionsData.length})`);
         
         // Agar keyingi sahifa bo'lmasa, to'xtatish
-        if (currentPage >= 10 || sessionsData.length < pageSize) { // 10 sahifadan keyin to'xtatish
+        if (currentPage >= 10 || sessionsData.length < pageSize) {
           break;
         }
         
@@ -524,8 +565,9 @@ const exportToExcel = async (dateRange) => {
     
     console.log(`Jami topildi: ${allSessions.length} ta`);
     
+    // TOASTER XABARI - Hech qanday sessiya topilmasa
     if (allSessions.length === 0) {
-      alert('Tanlangan vaqt oralig\'ida hech qanday sessiya topilmadi');
+      showToast('Tanlangan vaqt oralig\'ida hech qanday sessiya topilmadi', 'warning', 4000);
       return;
     }
     
@@ -617,11 +659,15 @@ const exportToExcel = async (dateRange) => {
       URL.revokeObjectURL(url);
     }, 100);
     
-    alert(`✅ ${allSessions.length} ta sessiya Excel fayliga yuklab olindi!`);
+    // TOASTER XABARI - Muvaffaqiyatli export
+    showToast(`✅ ${allSessions.length} ta sessiya Excel fayliga yuklab olindi!`, 'success', 4000);
     
   } catch (error) {
     console.error('Export jarayonida xato:', error);
-    alert(`❌ Excel faylini yuklab olishda xatolik:\n${error.message}`);
+    
+    // TOASTER XABARI - Xatolik
+    showToast(`❌ Excel faylini yuklab olishda xatolik:\n${error.message}`, 'error', 5000);
+    
   } finally {
     isExporting.value = false;
     isExportModalOpen.value = false;
@@ -759,5 +805,13 @@ tbody tr:hover {
   background-color: #f0f9ff;
   transform: translateX(2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Toaster container */
+.toast-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999;
 }
 </style>
