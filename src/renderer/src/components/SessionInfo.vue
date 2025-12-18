@@ -273,12 +273,10 @@ const loadSessionInfo = async (id) => {
     // API responsini formatlash (har xil strukturani qo'llab-quvvatlash)
     let responseData = data;
     
-    // Agar data object ichida bo'lsa
     if (data && typeof data === 'object' && data.data) {
       responseData = data.data;
     }
     
-    // Sessiya ma'lumotlarini to'ldirish
     sessionInfo.value = {
       id: responseData.id || responseData.ID || id,
       plateNumber: responseData.plateNumber || responseData.plate_number || responseData.carNumber || responseData.plate || "Noma'lum",
