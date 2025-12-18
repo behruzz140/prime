@@ -1,6 +1,6 @@
 {
   "name": "parkly",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Parkly is a parking management system",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -16,7 +16,12 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "release:win": "npm run build && electron-builder --win --publish always",
+    "release:mac": "npm run build && electron-builder --mac --publish always",
+    "release:linux": "npm run build && electron-builder --linux --publish always",
+    "publish:github": "npm run build && electron-builder --win --mac --linux --publish always",
+    "check-updates": "electron-vite build && electron-builder --win --publish onTagOrDraft"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
@@ -28,7 +33,7 @@
     "better-sqlite3": "^11.9.0",
     "cors": "^2.8.5",
     "electron-store": "^10.0.1",
-    "electron-updater": "^6.3.9",
+    "electron-updater": "^6.6.2",
     "express": "^4.21.2",
     "express-xml-bodyparser": "^0.3.0",
     "file-saver": "^2.0.5",
@@ -73,6 +78,7 @@
   "build": {
     "appId": "com.kodyatemirov.parkly",
     "productName": "Parkly",
+    "copyright": "Copyright © 2024 example.com",
     "directories": {
       "output": "dist"
     },
@@ -83,16 +89,44 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "resources/logo.ico"
+      "icon": "resources/logo.ico",
+      "publisherName": "example.com",
+      "verifyUpdateCodeSignature": false
     },
     "mac": {
       "target": "dmg",
-      "icon": "resources/logo.png"
+      "icon": "resources/logo.png",
+      "category": "public.app-category.business"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "resources/logo.ico"
+      "icon": "resources/logo.ico",
+      "category": "Utility"
     },
-    "publish": null
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Parkly"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "behruzz140",
+        "repo": "prime",
+        "releaseType": "release",
+        "private": false
+      }
+    ],
+    "extraMetadata": {
+      "main": "./out/main/index.js"
+    },
+    "generateUpdatesFilesForAllChannels": true,
+    "appImage": {
+      "synopsis": "Parking Management System",
+      "category": "Utility"
+    }
   }
 }
