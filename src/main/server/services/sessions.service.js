@@ -11,6 +11,7 @@ import { sendSessions } from "../../utils/sessionFunctions.js";
 
 const registerSession = async (req, res) => {
   try {
+    console.log("=== registerSession ===")
     const { number, plateImage, fullImage, eventName, tariffType, paymentMethod, cameraIp } =
       req.body;
 

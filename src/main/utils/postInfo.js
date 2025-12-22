@@ -15,6 +15,9 @@ const postInfo = async (data) => {
 
     const is_market = db.prepare("SELECT * from config ORDER BY id ASC").get()?.is_market;
 
+    // console.log("postInfo data:", data);
+    console.log("postInfo is_market:", is_market);
+
     if (is_market == 1) {
       const response = await axios.post(`${url}/v2/desktop/market/vehicles`, data, {
         headers: {
@@ -34,11 +37,14 @@ const postInfo = async (data) => {
 
       return response.data;
     } else {
+      console.log("Posting to parking endpoint");
       const response = await axios.post(`${url}/v2/desktop/parking/vehicles`, data, {
         headers: {
           Authorization: "Basic cG1zXzMwNjU3Njg1MzphM2YxYzhkOTJiN2U0ZjY1",
         },
       });
+
+      // console.log("Posting to parking endpoint response:", response);
 
       if (data.type == "insert") {
         db.prepare("UPDATE sessions SET isSync = 1, isUpdated = 0 WHERE id = ?").run(data.data.id);

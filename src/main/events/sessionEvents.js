@@ -22,6 +22,7 @@ const openFetch = async (status) => {
 </config>`;
 
     const response = await axios.post("https://10.20.10.131/ManualAlarmOut/1", raw, config);
+    console.log("https://10.20.10.131/ManualAlarmOut/1")
     console.log(response.data);
   } catch (error) {
     console.error("Ошибка запроса:", error.message);
@@ -33,6 +34,7 @@ const openFetch = async (status) => {
 };
 
 export function registerSessionEvents() {
+  console.log("==== registerSessionEvents =====")
   ipcMain.on(
     "new-session",
     (event, { number, plateImage, fullImage, eventName, tariffType, paymentMethod }) => {

@@ -20,6 +20,8 @@ const inputCar = async (req, res) => {
       throw new Error("No body in request");
     }
 
+    console.log("=== inputCar start ===")
+
     const operator = await getCameraOperator(req.headers.host);
 
     const camera = await getCamera(req.headers.host);
@@ -48,7 +50,8 @@ const inputCar = async (req, res) => {
         DELETE FROM sessions WHERE id = ?`
       ).run(isInnerCheck.id);
     }
-
+    console.log("=== before registerHourly ===")
+    console.log("=== number = {}", number)
     const data = await registerHourly({
       cameraIp: req.headers.host,
       mac: camera.mac,
@@ -96,11 +99,11 @@ const outputCar = async (req, res) => {
 
     const session = await getLastSessionUniversal(number, "number");
 
-    console.log(session, "OUTPUT CARRR");
+    // console.log(session, "OUTPUT CARRR");
 
     if (JSON.stringify(session) > 10) {
       const cost = null;
-      console.log(session, "OUTPUT CARRR SESSION");
+      // console.log(session, "OUTPUT CARRR SESSION");
 
       const insertedData = await outputSessionHandle({
         number,
@@ -156,7 +159,7 @@ const outputCar = async (req, res) => {
     } else {
       const cost = null;
 
-      console.log(session, "OUTPUT CARRR SESSION WITHOUT");
+      // console.log(session, "OUTPUT CARRR SESSION WITHOUT");
 
       const insertedData = await outputWithoutSessionHandle({
         number,

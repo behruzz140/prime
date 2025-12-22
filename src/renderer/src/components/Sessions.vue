@@ -244,7 +244,7 @@ const showToast = (message, type = 'info', duration = 3000) => {
 // Socket hodisalari
 socket.on("newSession", async (info) => {
   try {
-    console.log("Yangi sessiya:", info);
+    // console.log("Yangi sessiya:", info);
     // Store'ga yangi sessiyani qo'shamiz
     if (info && typeof info === 'object') {
       if (sessionStore.addSession) {

@@ -30,8 +30,8 @@
   const isAdvantageSelected = ref(false);
 
   const emit = defineEmits(["update:modelValue", "update:newCar"]);
-  // const isOpen = ref(props.modelValue);
-  const isOpen = true;
+  const isOpen = ref(props.modelValue);
+  // const isOpen = true;
 
   // newCar uchun lokal nusxa yaratamiz
   const localNewCar = ref({ ...props.newCar });

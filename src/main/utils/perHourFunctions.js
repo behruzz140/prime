@@ -1,6 +1,6 @@
 import db from "../db/database";
 import { getCameraOperator } from "../server/services/camera.service";
-import { checkInternetConnection } from "./checkInternet";
+import { checkInternetConnection, checkInternetConnectionWithFallback } from "./checkInternet";
 import generateOfd from "./generateOfd";
 import { postInfo } from "./postInfo";
 import { sendParkStats } from "./sessionFunctions";
@@ -8,6 +8,7 @@ import { getIO } from "./socket";
 
 const registerHourly = async ({ plateImage, fullImage, number, cameraIp, tariffType, mac }) => {
   try {
+    console.log("=== start work registerHourly ===")
     const stmt = db.prepare(`
     INSERT INTO sessions
       (plateNumber, inputPlateImage, inputFullImage, startTime, tariffType, duration, inputCost, inputPaymentMethod,cameraIp,lastActivity,mac)
@@ -36,8 +37,13 @@ const registerHourly = async ({ plateImage, fullImage, number, cameraIp, tariffT
 
     await getIO().emit("newSession", insertedData);
     await sendParkStats();
-
-    if (await checkInternetConnection()) {
+    console.log("=== before checkInternetConnection ===")
+    // let checkInternet = true
+    let checkInternet = await checkInternetConnection()
+    // let checkInternet = await checkInternetConnectionWithFallback()
+    console.log("=== checkInternetConnection = ", checkInternet)
+    if (checkInternet) {
+      console.log("=== after checkInternetConnection ===")
       insertedData.event = "input";
       await postInfo({
         type: "insert",
