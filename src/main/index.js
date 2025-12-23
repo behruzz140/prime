@@ -7,107 +7,208 @@ import { registerPrintEvent } from "./events/printEvent.js";
 import db from "@/db/database.js";
 import { startServer, stopServer } from "./serverControl";
 import { updateMenu } from "./menu";
-import { exec } from "child_process";
-import path from "path";
 import logger from "./utils/logger.js";
 
 const store = new Store();
 let mainWindow;
 
+const now = () =>
+  new Date().toLocaleString("sv-SE", {
+    timeZone: "Asia/Tashkent",
+    hour12: false
+  });
+
+app.startTime = Date.now();
+logger.info("APPLICATION_START_TIMESTAMP_SET", {
+  startTime: now()
+});
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("com.electron");
-  
-  logger.info("Electron app is ready");
+
+  logger.info("ELECTRON_APP_READY", {
+    appName: app.getName(),
+    version: app.getVersion(),
+    time: now()
+  });
 
   mainWindow = createWindow();
-  logger.info("Main window created");
+  logger.info("MAIN_WINDOW_CREATED", {
+    windowId: mainWindow.id,
+    time: now()
+  });
 
-  if (!store.get("checkboxState", false)) {
-    logger.info("Starting server...");
-    startServer(mainWindow);
+  logger.logDatabaseEvent("connected", null, {
+    path: db.name,
+    connectionTime: now()
+  });
+
+  const checkboxState = store.get("checkboxState", false);
+  logger.info("CHECKBOX_STATE", { state: checkboxState, time: now() });
+
+  if (!checkboxState) {
+    logger.logServerEvent("starting", {
+      reason: "auto_start_enabled",
+      timestamp: now()
+    });
+
+    try {
+      startServer(mainWindow);
+      logger.logServerEvent("started", {
+        status: "running",
+        startTime: now()
+      });
+    } catch (error) {
+      logger.error("SERVER_START_FAILED", {
+        error: error.message,
+        stack: error.stack,
+        time: now()
+      });
+    }
   } else {
-    logger.info("Server autostart disabled by checkbox state");
+    logger.info("SERVER_AUTOSTART_DISABLED", {
+      reason: "checkbox_checked",
+      action: "manual_start_required",
+      time: now()
+    });
   }
 
   updateMenu(mainWindow);
-  logger.info("Application menu updated");
-
-  logger.info(`Database path: ${db.name}`);
+  logger.info("APPLICATION_MENU_UPDATED", { time: now() });
 
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
-    logger.debug("Browser window created and shortcuts optimized");
+    logger.info("NEW_WINDOW_CREATED", {
+      windowId: window.id,
+      type: "browser_window",
+      time: now()
+    });
   });
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
-      logger.info("All windows closed, quitting application");
+      logger.info("ALL_WINDOWS_CLOSED", {
+        action: "quitting_application",
+        platform: process.platform,
+        time: now()
+      });
       app.quit();
     } else {
-      logger.debug("Window closed on macOS, keeping app alive");
+      logger.info("WINDOWS_CLOSED_MACOS", {
+        action: "keeping_app_active",
+        windowsCount: 0,
+        time: now()
+      });
     }
   });
 
   app.on("quit", async () => {
-    logger.info("Application quitting, cleaning up resources");
-    
+    logger.info("APPLICATION_QUIT_INITIATED", { time: now() });
+
     try {
+      logger.logServerEvent("stopping", { action: "cleanup", time: now() });
       await stopServer();
-      logger.info("Server stopped successfully");
+      logger.logServerEvent("stopped", {
+        status: "success",
+        stopTime: now()
+      });
     } catch (error) {
-      logger.error("Failed to stop server:", { error: error.message });
+      logger.error("SERVER_STOP_ERROR", {
+        error: error.message,
+        stack: error.stack,
+        time: now()
+      });
     }
-    
+
     try {
       await db.close();
-      logger.info("Database connection closed");
+      logger.logDatabaseEvent("disconnected", null, {
+        status: "closed",
+        closeTime: now()
+      });
     } catch (error) {
-      logger.error("Failed to close database:", { error: error.message });
+      logger.error("DATABASE_CLOSE_ERROR", {
+        error: error.message,
+        stack: error.stack,
+        time: now()
+      });
     }
-    
-    logger.info("Cleanup completed");
+
+    logger.info("CLEANUP_COMPLETED", { endTime: now() });
   });
 
   app.on("activate", () => {
     if (mainWindow === null) {
-      logger.info("Activating app, creating new window");
+      logger.info("APP_REACTIVATED", {
+        action: "creating_new_window",
+        reason: "no_active_windows",
+        time: now()
+      });
       mainWindow = createWindow();
     } else {
-      logger.debug("App activated, main window exists");
+      logger.info("APP_ACTIVATED", {
+        action: "focusing_existing_window",
+        windowId: mainWindow.id,
+        time: now()
+      });
+      mainWindow.focus();
     }
   });
 
-  try {
-    registerSessionEvents();
-    logger.info("Session events registered");
-  } catch (error) {
-    logger.error("Failed to register session events:", { error: error.message });
-  }
+  registerSessionEvents();
+  logger.info("SESSION_EVENTS_REGISTERED", {
+    status: "success",
+    registrationTime: now()
+  });
 
-  try {
-    registerPrintEvent();
-    logger.info("Print events registered");
-  } catch (error) {
-    logger.error("Failed to register print events:", { error: error.message });
-  }
+  registerPrintEvent();
+  logger.info("PRINT_EVENTS_REGISTERED", {
+    status: "success",
+    registrationTime: now()
+  });
 
-  logger.info("Application initialization completed");
+  logger.info("APPLICATION_INITIALIZATION_COMPLETED", {
+    timestamp: now(),
+    initDuration: Date.now() - app.startTime
+  });
 });
 
-app.on("before-quit", (event) => {
-  logger.info("Application before-quit event fired");
+app.on("before-quit", () => {
+  logger.info("BEFORE_QUIT_EVENT", {
+    eventType: "before_quit",
+    time: now()
+  });
 });
 
-process.on("uncaughtException", (error) => {
-  logger.error("Uncaught exception:", { 
-    error: error.message, 
-    stack: error.stack 
+process.on("uncaughtException", error => {
+  logger.error("UNCAUGHT_EXCEPTION", {
+    error: error.message,
+    stack: error.stack,
+    name: error.name,
+    processUptime: process.uptime(),
+    time: now()
   });
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  logger.error("Unhandled promise rejection:", { 
-    reason: reason?.message || reason, 
-    promise 
+  logger.error("UNHANDLED_PROMISE_REJECTION", {
+    reason: reason?.message || reason,
+    promise: promise?.toString()?.substring(0, 100),
+    processUptime: process.uptime(),
+    time: now()
+  });
+});
+
+app.on("browser-window-focus", (_, window) => {
+  logger.info("WINDOW_FOCUSED", {
+    windowId: window.id,
+    time: now()
+  });
+});
+
+app.on("browser-window-blur", (_, window) => {
+  logger.info("WINDOW_BLURRED", {
+    windowId: window.id,
+    time: now()
   });
 });
